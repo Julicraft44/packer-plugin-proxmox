@@ -26,14 +26,16 @@ func TestTokenAuth(t *testing.T) {
 
 	pmURL, _ := url.Parse(mockAPI.URL)
 	config := Config{
-		proxmoxURL:         pmURL,
-		SkipCertValidation: false,
-		Username:           "dummy@vmhost!test-token",
-		Password:           "not-used",
-		Token:              "ac5293bf-15e2-477f-b04c-a6dfa7a46b80",
+		ProxmoxConnect: ProxmoxConnectConfig{
+			ProxmoxURL:         pmURL,
+			SkipCertValidation: false,
+			Username:           "dummy@vmhost!test-token",
+			Password:           "not-used",
+			Token:              "ac5293bf-15e2-477f-b04c-a6dfa7a46b80",
+		},
 	}
 
-	client, err := newProxmoxClient(config)
+	client, err := NewProxmoxClient(config.ProxmoxConnect, false)
 	require.NoError(t, err)
 
 	ref := proxmox.NewVmRef(110)
@@ -76,14 +78,16 @@ func TestLogin(t *testing.T) {
 
 	pmURL, _ := url.Parse(mockAPI.URL)
 	config := Config{
-		proxmoxURL:         pmURL,
-		SkipCertValidation: false,
-		Username:           "dummy@vmhost",
-		Password:           "correct-horse-battery-staple",
-		Token:              "",
+		ProxmoxConnect: ProxmoxConnectConfig{
+			ProxmoxURL:         pmURL,
+			SkipCertValidation: false,
+			Username:           "dummy@vmhost",
+			Password:           "correct-horse-battery-staple",
+			Token:              "",
+		},
 	}
 
-	client, err := newProxmoxClient(config)
+	client, err := NewProxmoxClient(config.ProxmoxConnect, false)
 	require.NoError(t, err)
 
 	ref := proxmox.NewVmRef(110)

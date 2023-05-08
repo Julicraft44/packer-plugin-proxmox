@@ -89,7 +89,7 @@ func (c *Config) generateIsoConfigs() ([]proxmox.ConfigContent_Iso, error) {
 			checksumType = fileChecksum.Type
 		}
 		isoConfigs = append(isoConfigs, proxmox.ConfigContent_Iso{
-			Node:              c.Node,
+			Node:              c.ProxmoxConnect.Node,
 			Storage:           c.ISOStoragePool,
 			DownloadUrl:       url,
 			Filename:          path.Base(url),

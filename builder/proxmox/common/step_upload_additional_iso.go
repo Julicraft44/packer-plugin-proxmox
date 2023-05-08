@@ -72,7 +72,7 @@ func (s *stepUploadAdditionalISO) Run(ctx context.Context, state multistep.State
 	}
 
 	filename := filepath.Base(isoPath)
-	err = client.Upload(c.Node, s.ISO.ISOStoragePool, "iso", filename, r)
+	err = client.Upload(c.ProxmoxConnect.Node, s.ISO.ISOStoragePool, "iso", filename, r)
 	if err != nil {
 		state.Put("error", err)
 		ui.Error(err.Error())
@@ -94,7 +94,7 @@ func (s *stepUploadAdditionalISO) Cleanup(state multistep.StateBag) {
 	if (len(s.ISO.CDFiles) > 0 || len(s.ISO.CDContent) > 0) && s.ISO.DownloadPathKey != "" {
 		// Fake a VM reference, DeleteVolume just needs the node to be valid
 		vmRef := &proxmoxapi.VmRef{}
-		vmRef.SetNode(c.Node)
+		vmRef.SetNode(c.ProxmoxConnect.Node)
 		vmRef.SetVmType("qemu")
 
 		_, err := client.DeleteVolume(vmRef, s.ISO.ISOStoragePool, s.ISO.ISOFile)

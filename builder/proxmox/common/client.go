@@ -10,17 +10,24 @@ import (
 	"github.com/Telmate/proxmox-api-go/proxmox"
 )
 
-func newProxmoxClient(config Config) (*proxmox.Client, error) {
+func NewProxmoxClient(config ProxmoxConnectConfig, debug bool) (*proxmox.Client, error) {
 	tlsConfig := &tls.Config{
 		InsecureSkipVerify: config.SkipCertValidation,
 	}
 
-	client, err := proxmox.NewClient(config.proxmoxURL.String(), nil, "", tlsConfig, "", int(config.TaskTimeout.Seconds()))
+	client, err := proxmox.NewClient(
+		config.ProxmoxURL.String(),
+		nil,
+		"",
+		tlsConfig,
+		"",
+		int(config.TaskTimeout.Seconds()),
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	*proxmox.Debug = config.PackerDebug
+	*proxmox.Debug = debug
 
 	if config.Token != "" {
 		// configure token auth

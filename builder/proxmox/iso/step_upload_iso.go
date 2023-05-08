@@ -52,7 +52,7 @@ func (s *stepUploadISO) Run(ctx context.Context, state multistep.StateBag) multi
 	}
 
 	filename := filepath.Base(c.ISOUrls[0])
-	err = client.Upload(c.Node, c.ISOStoragePool, "iso", filename, r)
+	err = client.Upload(c.ProxmoxConnect.Node, c.ISOStoragePool, "iso", filename, r)
 	if err != nil {
 		state.Put("error", err)
 		ui.Error(err.Error())

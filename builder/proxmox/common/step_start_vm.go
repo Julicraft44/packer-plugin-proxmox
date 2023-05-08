@@ -176,7 +176,7 @@ func (s *stepStartVM) Run(ctx context.Context, state multistep.StateBag) multist
 			config.VmID = genID
 		}
 		vmRef = proxmox.NewVmRef(id)
-		vmRef.SetNode(c.Node)
+		vmRef.SetNode(c.ProxmoxConnect.Node)
 		if c.Pool != "" {
 			vmRef.SetPool(c.Pool)
 			config.Pool = c.Pool

@@ -13,9 +13,9 @@ import (
 )
 
 type Artifact struct {
-	builderID     string
-	templateID    int
-	proxmoxClient *proxmox.Client
+	BuilderID     string
+	TemplateID    int
+	ProxmoxClient *proxmox.Client
 
 	// StateData should store data such as GeneratedData
 	// to be shared with post-processors
@@ -26,7 +26,7 @@ type Artifact struct {
 var _ packersdk.Artifact = &Artifact{}
 
 func (a *Artifact) BuilderId() string {
-	return a.builderID
+	return a.BuilderID
 }
 
 func (*Artifact) Files() []string {
@@ -34,11 +34,11 @@ func (*Artifact) Files() []string {
 }
 
 func (a *Artifact) Id() string {
-	return strconv.Itoa(a.templateID)
+	return strconv.Itoa(a.TemplateID)
 }
 
 func (a *Artifact) String() string {
-	return fmt.Sprintf("A template was created: %d", a.templateID)
+	return fmt.Sprintf("A template was created: %d", a.TemplateID)
 }
 
 func (a *Artifact) State(name string) interface{} {
@@ -46,7 +46,7 @@ func (a *Artifact) State(name string) interface{} {
 }
 
 func (a *Artifact) Destroy() error {
-	log.Printf("Destroying template: %d", a.templateID)
-	_, err := a.proxmoxClient.DeleteVm(proxmox.NewVmRef(a.templateID))
+	log.Printf("Destroying template: %d", a.TemplateID)
+	_, err := a.ProxmoxClient.DeleteVm(proxmox.NewVmRef(a.TemplateID))
 	return err
 }

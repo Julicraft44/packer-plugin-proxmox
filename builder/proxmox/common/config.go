@@ -28,23 +28,26 @@ import (
 	"github.com/mitchellh/mapstructure"
 )
 
-type Config struct {
-	common.PackerConfig    `mapstructure:",squash"`
-	commonsteps.HTTPConfig `mapstructure:",squash"`
-	bootcommand.BootConfig `mapstructure:",squash"`
-	BootKeyInterval        time.Duration       `mapstructure:"boot_key_interval"`
-	Comm                   communicator.Config `mapstructure:",squash"`
-
-	ProxmoxURLRaw      string `mapstructure:"proxmox_url"`
-	proxmoxURL         *url.URL
+type ProxmoxConnectConfig struct {
+	ProxmoxURLRaw      string        `mapstructure:"proxmox_url"`
+	ProxmoxURL         *url.URL      `mapstructure-to-hcl2:",skip"`
 	SkipCertValidation bool          `mapstructure:"insecure_skip_tls_verify"`
 	Username           string        `mapstructure:"username"`
 	Password           string        `mapstructure:"password"`
 	Token              string        `mapstructure:"token"`
 	Node               string        `mapstructure:"node"`
-	Pool               string        `mapstructure:"pool"`
 	TaskTimeout        time.Duration `mapstructure:"task_timeout"`
+}
 
+type Config struct {
+	common.PackerConfig    `mapstructure:",squash"`
+	commonsteps.HTTPConfig `mapstructure:",squash"`
+	bootcommand.BootConfig `mapstructure:",squash"`
+	BootKeyInterval        time.Duration        `mapstructure:"boot_key_interval"`
+	Comm                   communicator.Config  `mapstructure:",squash"`
+	ProxmoxConnect         ProxmoxConnectConfig `mapstructure:",squash"`
+
+	Pool   string `mapstructure:"pool"`
 	VMName string `mapstructure:"vm_name"`
 	VMID   int    `mapstructure:"vm_id"`
 
@@ -149,24 +152,27 @@ func (c *Config) Prepare(upper interface{}, raws ...interface{}) ([]string, []st
 		c.Agent = config.TriTrue
 	}
 
-	packersdk.LogSecretFilter.Set(c.Password)
+	proxmoxConnectConf := c.ProxmoxConnect
+
+	packersdk.LogSecretFilter.Set(proxmoxConnectConf.Password)
 
 	// Defaults
-	if c.ProxmoxURLRaw == "" {
-		c.ProxmoxURLRaw = os.Getenv("PROXMOX_URL")
+	if proxmoxConnectConf.ProxmoxURLRaw == "" {
+		proxmoxConnectConf.ProxmoxURLRaw = os.Getenv("PROXMOX_URL")
 	}
-	if c.Username == "" {
-		c.Username = os.Getenv("PROXMOX_USERNAME")
+	if proxmoxConnectConf.Username == "" {
+		proxmoxConnectConf.Username = os.Getenv("PROXMOX_USERNAME")
 	}
-	if c.Password == "" {
-		c.Password = os.Getenv("PROXMOX_PASSWORD")
+	if proxmoxConnectConf.Password == "" {
+		proxmoxConnectConf.Password = os.Getenv("PROXMOX_PASSWORD")
 	}
-	if c.Token == "" {
-		c.Token = os.Getenv("PROXMOX_TOKEN")
+	if proxmoxConnectConf.Token == "" {
+		proxmoxConnectConf.Token = os.Getenv("PROXMOX_TOKEN")
 	}
-	if c.TaskTimeout == 0 {
-		c.TaskTimeout = 60 * time.Second
+	if proxmoxConnectConf.TaskTimeout == 0 {
+		c.ProxmoxConnect.TaskTimeout = 60 * time.Second
 	}
+	c.ProxmoxConnect = proxmoxConnectConf
 	if c.BootKeyInterval == 0 && os.Getenv(bootcommand.PackerKeyEnv) != "" {
 		var err error
 		c.BootKeyInterval, err = time.ParseDuration(os.Getenv(bootcommand.PackerKeyEnv))
@@ -261,19 +267,19 @@ func (c *Config) Prepare(upper interface{}, raws ...interface{}) ([]string, []st
 	errs = packersdk.MultiErrorAppend(errs, c.HTTPConfig.Prepare(&c.Ctx)...)
 
 	// Required configurations that will display errors if not set
-	if c.Username == "" {
+	if c.ProxmoxConnect.Username == "" {
 		errs = packersdk.MultiErrorAppend(errs, errors.New("username must be specified"))
 	}
-	if c.Password == "" && c.Token == "" {
+	if c.ProxmoxConnect.Password == "" && c.ProxmoxConnect.Token == "" {
 		errs = packersdk.MultiErrorAppend(errs, errors.New("password or token must be specified"))
 	}
-	if c.ProxmoxURLRaw == "" {
+	if c.ProxmoxConnect.ProxmoxURLRaw == "" {
 		errs = packersdk.MultiErrorAppend(errs, errors.New("proxmox_url must be specified"))
 	}
-	if c.proxmoxURL, err = url.Parse(c.ProxmoxURLRaw); err != nil {
+	if c.ProxmoxConnect.ProxmoxURL, err = url.Parse(c.ProxmoxConnect.ProxmoxURLRaw); err != nil {
 		errs = packersdk.MultiErrorAppend(errs, fmt.Errorf("could not parse proxmox_url: %s", err))
 	}
-	if c.Node == "" {
+	if c.ProxmoxConnect.Node == "" {
 		errs = packersdk.MultiErrorAppend(errs, errors.New("node must be specified"))
 	}
 

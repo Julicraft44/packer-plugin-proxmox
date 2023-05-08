@@ -37,7 +37,7 @@ type Builder struct {
 
 func (b *Builder) Run(ctx context.Context, ui packersdk.Ui, hook packersdk.Hook, state multistep.StateBag) (packersdk.Artifact, error) {
 	var err error
-	b.proxmoxClient, err = newProxmoxClient(b.config)
+	b.proxmoxClient, err = NewProxmoxClient(b.config.ProxmoxConnect, b.config.PackerDebug)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +62,7 @@ func (b *Builder) Run(ctx context.Context, ui packersdk.Ui, hook packersdk.Hook,
 		},
 		&communicator.StepConnect{
 			Config:    comm,
-			Host:      commHost((*comm).Host()),
+			Host:      CommHost((*comm).Host()),
 			SSHConfig: (*comm).SSHConfigFunc(),
 		},
 		&commonsteps.StepProvision{},
@@ -72,7 +72,7 @@ func (b *Builder) Run(ctx context.Context, ui packersdk.Ui, hook packersdk.Hook,
 		&stepRemoveCloudInitDrive{},
 		&stepConvertToTemplate{},
 		&stepFinalizeTemplateConfig{},
-		&stepSuccess{},
+		&StepSuccess{},
 	}
 	preSteps := b.preSteps
 	for idx := range b.config.AdditionalISOFiles {
@@ -117,9 +117,9 @@ func (b *Builder) Run(ctx context.Context, ui packersdk.Ui, hook packersdk.Hook,
 	}
 
 	artifact := &Artifact{
-		builderID:     b.id,
-		templateID:    tplID,
-		proxmoxClient: b.proxmoxClient,
+		BuilderID:     b.id,
+		TemplateID:    tplID,
+		ProxmoxClient: b.proxmoxClient,
 		StateData:     map[string]interface{}{"generated_data": state.Get("generated_data")},
 	}
 
@@ -128,7 +128,7 @@ func (b *Builder) Run(ctx context.Context, ui packersdk.Ui, hook packersdk.Hook,
 
 // Returns ssh_host or winrm_host (see communicator.Config.Host) config
 // parameter when set, otherwise gets the host IP from running VM
-func commHost(host string) func(state multistep.StateBag) (string, error) {
+func CommHost(host string) func(state multistep.StateBag) (string, error) {
 	if host != "" {
 		return func(state multistep.StateBag) (string, error) {
 			return host, nil
