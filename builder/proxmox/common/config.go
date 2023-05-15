@@ -170,7 +170,7 @@ func (c *Config) Prepare(upper interface{}, raws ...interface{}) ([]string, []st
 		proxmoxConnectConf.Token = os.Getenv("PROXMOX_TOKEN")
 	}
 	if proxmoxConnectConf.TaskTimeout == 0 {
-		c.ProxmoxConnect.TaskTimeout = 60 * time.Second
+		proxmoxConnectConf.TaskTimeout = 60 * time.Second
 	}
 	c.ProxmoxConnect = proxmoxConnectConf
 	if c.BootKeyInterval == 0 && os.Getenv(bootcommand.PackerKeyEnv) != "" {

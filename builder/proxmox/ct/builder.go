@@ -6,10 +6,8 @@ package proxmoxct
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/Telmate/proxmox-api-go/proxmox"
-	proxmoxapi "github.com/Telmate/proxmox-api-go/proxmox"
 	"github.com/hashicorp/hcl/v2/hcldec"
 	common "github.com/hashicorp/packer-plugin-proxmox/builder/proxmox/common"
 	"github.com/hashicorp/packer-plugin-sdk/communicator"
@@ -51,19 +49,23 @@ func (b *Builder) Run(ctx context.Context, ui packersdk.Ui, hook packersdk.Hook)
 	state.Put("hook", hook)
 	state.Put("ui", ui)
 
-	comm := &b.config.Comm
+	// targetComm := &b.config.Comm
+	hostComm := &b.config.Comm
 
 	steps := []multistep.Step{
 		&stepCtCreate{},
 		&communicator.StepConnect{
-			Config:    comm,
-			Host:      commHost((*comm).Host()),
-			SSHConfig: (*comm).SSHConfigFunc(),
+			Config:    hostComm,
+			Host:      commHost(hostComm.Host()),
+			SSHConfig: (*hostComm).SSHConfigFunc(),
 		},
-		&commonsteps.StepProvision{},
+		&stepGetCtIpAddr{},
+		&stepProvision{},
 		&commonsteps.StepCleanupTempKeys{
 			Comm: &b.config.Comm,
-		}, &common.StepSuccess{}}
+		},
+		&common.StepConvertToTemplate{},
+		&common.StepSuccess{}}
 	b.runner = commonsteps.NewRunner(steps, b.config.PackerConfig, ui)
 	b.runner.Run(ctx, state)
 
@@ -87,67 +89,13 @@ func (b *Builder) Run(ctx context.Context, ui packersdk.Ui, hook packersdk.Hook)
 	return artifact, nil
 }
 
-type isoVMCreator struct{}
-
-func (*isoVMCreator) Create(vmRef *proxmoxapi.VmRef, config proxmoxapi.ConfigQemu, state multistep.StateBag) error {
-	isoFile := state.Get("iso_file").(string)
-	config.QemuIso = isoFile
-
-	client := state.Get("proxmoxClient").(*proxmoxapi.Client)
-	return config.CreateVm(vmRef, client)
-}
-
 // Returns ssh_host or winrm_host (see communicator.Config.Host) config
 // parameter when set, otherwise gets the host IP from running VM
 func commHost(host string) func(state multistep.StateBag) (string, error) {
-	if host != "" {
-		return func(state multistep.StateBag) (string, error) {
-			return host, nil
+	return func(state multistep.StateBag) (string, error) {
+		if host == "" {
+			return "", errors.New("no host set")
 		}
+		return host, nil
 	}
-	return getVMIP
-}
-
-// Reads the first non-loopback interface's IP address from the VM.
-// qemu-guest-agent package must be installed on the VM
-func getVMIP(state multistep.StateBag) (string, error) {
-	client := state.Get("proxmoxClient").(*proxmox.Client)
-	// config := state.Get("config").(*Config)
-	vmRef := state.Get("vmRef").(*proxmox.VmRef)
-
-	ifs, err := client.GetVmAgentNetworkInterfaces(vmRef)
-	if err != nil {
-		return "", err
-	}
-
-	// if config.VMInterface != "" {
-	// 	for _, iface := range ifs {
-	// 		if config.VMInterface != iface.Name {
-	// 			continue
-	// 		}
-
-	// 		for _, addr := range iface.IPAddresses {
-	// 			if addr.IsLoopback() {
-	// 				continue
-	// 			}
-	// 			return addr.String(), nil
-	// 		}
-	// 		return "", fmt.Errorf("Interface %s only has loopback addresses", config.VMInterface)
-	// 	}
-	// 	return "", fmt.Errorf("Interface %s not found in VM", config.VMInterface)
-	// }
-
-	for _, iface := range ifs {
-		for _, addr := range iface.IPAddresses {
-			if addr.IsLoopback() {
-				continue
-			}
-			if addr.To4() == nil {
-				continue
-			}
-			return addr.String(), nil
-		}
-	}
-
-	return "", fmt.Errorf("Found no IP addresses on VM")
 }

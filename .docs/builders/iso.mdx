@@ -3153,3 +3153,729 @@ build {
 
 </Tab>
 </Tabs>
+tos6-ks.cfg<enter>"
+	]
+
+```
+
+The example shown below is a working boot command used to start an Ubuntu
+12.04 installer:
+
+In JSON:
+
+```json
+"boot_command": [
+
+	"<esc><esc><enter><wait>",
+	"/install/vmlinuz noapic ",
+	"preseed/url=http://{{ .HTTPIP }}:{{ .HTTPPort }}/preseed.cfg ",
+	"debian-installer=en_US auto locale=en_US kbd-chooser/method=us ",
+	"hostname={{ .Name }} ",
+	"fb=false debconf/frontend=noninteractive ",
+	"keyboard-configuration/modelcode=SKIP keyboard-configuration/layout=USA ",
+	"keyboard-configuration/variant=USA console-setup/ask_detect=false ",
+	"initrd=/install/initrd.gz -- <enter>"
+
+]
+```
+
+In HCL2:
+
+```hcl
+boot_command = [
+
+	"<esc><esc><enter><wait>",
+	"/install/vmlinuz noapic ",
+	"preseed/url=http://{{ .HTTPIP }}:{{ .HTTPPort }}/preseed.cfg ",
+	"debian-installer=en_US auto locale=en_US kbd-chooser/method=us ",
+	"hostname={{ .Name }} ",
+	"fb=false debconf/frontend=noninteractive ",
+	"keyboard-configuration/modelcode=SKIP keyboard-configuration/layout=USA ",
+	"keyboard-configuration/variant=USA console-setup/ask_detect=false ",
+	"initrd=/install/initrd.gz -- <enter>"
+
+]
+```
+
+For more examples of various boot commands, see the sample projects from our
+[community templates page](https://packer.io/community-tools#templates).
+
+<!-- End of code generated from the comments of the BootConfig struct in bootcommand/config.go; -->
+
+
+### Optional:
+<!-- Code generated from the comments of the BootConfig struct in bootcommand/config.go; DO NOT EDIT MANUALLY -->
+
+- `boot_keygroup_interval` (duration string | ex: "1h5m2s") - Time to wait after sending a group of key pressses. The value of this
+  should be a duration. Examples are `5s` and `1m30s` which will cause
+  Packer to wait five seconds and one minute 30 seconds, respectively. If
+  this isn't specified, a sensible default value is picked depending on
+  the builder type.
+
+- `boot_wait` (duration string | ex: "1h5m2s") - The time to wait after booting the initial virtual machine before typing
+  the `boot_command`. The value of this should be a duration. Examples are
+  `5s` and `1m30s` which will cause Packer to wait five seconds and one
+  minute 30 seconds, respectively. If this isn't specified, the default is
+  `10s` or 10 seconds. To set boot_wait to 0s, use a negative number, such
+  as "-1s"
+
+- `boot_command` ([]string) - This is an array of commands to type when the virtual machine is first
+  booted. The goal of these commands should be to type just enough to
+  initialize the operating system installer. Special keys can be typed as
+  well, and are covered in the section below on the boot command. If this
+  is not specified, it is assumed the installer will start itself.
+
+<!-- End of code generated from the comments of the BootConfig struct in bootcommand/config.go; -->
+
+
+## Http directory configuration
+
+<!-- Code generated from the comments of the HTTPConfig struct in multistep/commonsteps/http_config.go; DO NOT EDIT MANUALLY -->
+
+Packer will create an http server serving `http_directory` when it is set, a
+random free port will be selected and the architecture of the directory
+referenced will be available in your builder.
+
+Example usage from a builder:
+
+	`wget http://{{ .HTTPIP }}:{{ .HTTPPort }}/foo/bar/preseed.cfg`
+
+<!-- End of code generated from the comments of the HTTPConfig struct in multistep/commonsteps/http_config.go; -->
+
+
+### Optional:
+
+<!-- Code generated from the comments of the HTTPConfig struct in multistep/commonsteps/http_config.go; DO NOT EDIT MANUALLY -->
+
+- `http_directory` (string) - Path to a directory to serve using an HTTP server. The files in this
+  directory will be available over HTTP that will be requestable from the
+  virtual machine. This is useful for hosting kickstart files and so on.
+  By default this is an empty string, which means no HTTP server will be
+  started. The address and port of the HTTP server will be available as
+  variables in `boot_command`. This is covered in more detail below.
+
+- `http_content` (map[string]string) - Key/Values to serve using an HTTP server. `http_content` works like and
+  conflicts with `http_directory`. The keys represent the paths and the
+  values contents, the keys must start with a slash, ex: `/path/to/file`.
+  `http_content` is useful for hosting kickstart files and so on. By
+  default this is empty, which means no HTTP server will be started. The
+  address and port of the HTTP server will be available as variables in
+  `boot_command`. This is covered in more detail below.
+  Example:
+  ```hcl
+    http_content = {
+      "/a/b"     = file("http/b")
+      "/foo/bar" = templatefile("${path.root}/preseed.cfg", { packages = ["nginx"] })
+    }
+  ```
+
+- `http_port_min` (int) - These are the minimum and maximum port to use for the HTTP server
+  started to serve the `http_directory`. Because Packer often runs in
+  parallel, Packer will choose a randomly available port in this range to
+  run the HTTP server. If you want to force the HTTP server to be on one
+  port, make this minimum and maximum port the same. By default the values
+  are `8000` and `9000`, respectively.
+
+- `http_port_max` (int) - HTTP Port Max
+
+- `http_bind_address` (string) - This is the bind address for the HTTP server. Defaults to 0.0.0.0 so that
+  it will work with any network interface.
+
+<!-- End of code generated from the comments of the HTTPConfig struct in multistep/commonsteps/http_config.go; -->
+
+
+## Example: Fedora with kickstart
+
+Here is a basic example creating a Fedora 29 server image with a Kickstart
+file served with Packer's HTTP server. Note that the iso file needs to be
+manually downloaded.
+
+<Tabs>
+<Tab heading="HCL2">
+
+```hcl
+variable "password" {
+  type    = string
+  default = "supersecret"
+}
+
+variable "username" {
+  type    = string
+  default = "apiuser@pve"
+}
+
+source "proxmox-iso" "fedora-kickstart" {
+  boot_command = ["<up><tab> ip=dhcp inst.cmdline inst.ks=http://{{ .HTTPIP }}:{{ .HTTPPort }}/ks.cfg<enter>"]
+  boot_wait    = "10s"
+  disks {
+    disk_size         = "5G"
+    storage_pool      = "local-lvm"
+    type              = "scsi"
+  }
+  efi_config {
+    efi_storage_pool  = "local-lvm"
+    efi_type          = "4m"
+    pre_enrolled_keys = true
+  }
+  http_directory           = "config"
+  insecure_skip_tls_verify = true
+  iso_file                 = "local:iso/Fedora-Server-dvd-x86_64-29-1.2.iso"
+  network_adapters {
+    bridge = "vmbr0"
+    model  = "virtio"
+  }
+  node                 = "my-proxmox"
+  password             = "${var.password}"
+  proxmox_url          = "https://my-proxmox.my-domain:8006/api2/json"
+  ssh_password         = "packer"
+  ssh_timeout          = "15m"
+  ssh_username         = "root"
+  template_description = "Fedora 29-1.2, generated on ${timestamp()}"
+  template_name        = "fedora-29"
+  unmount_iso          = true
+  username             = "${var.username}"
+}
+
+build {
+  sources = ["source.proxmox-iso.fedora-kickstart"]
+}
+```
+
+</Tab>
+<Tab heading="JSON">
+
+```json
+{
+  "variables": {
+    "username": "apiuser@pve",
+    "password": "supersecret"
+  },
+  "builders": [
+    {
+      "type": "proxmox-iso",
+      "proxmox_url": "https://my-proxmox.my-domain:8006/api2/json",
+      "insecure_skip_tls_verify": true,
+      "username": "{{user `username`}}",
+      "password": "{{user `password`}}",
+      "node": "my-proxmox",
+      "network_adapters": [
+        {
+          "model": "virtio",
+          "bridge": "vmbr0"
+        }
+      ],
+      "disks": [
+        {
+          "type": "scsi",
+          "disk_size": "5G",
+          "storage_pool": "local-lvm"
+        }
+      ],
+      "efi_config": {
+          "efi_storage_pool": "local-lvm",
+          "pre_enrolled_keys": true,
+          "efi_type": "4m"
+      },
+      "iso_file": "local:iso/Fedora-Server-dvd-x86_64-29-1.2.iso",
+      "http_directory": "config",
+      "boot_wait": "10s",
+      "boot_command": [
+        "<up><tab> ip=dhcp inst.cmdline inst.ks=http://{{.HTTPIP}}:{{.HTTPPort}}/ks.cfg<enter>"
+      ],
+      "ssh_username": "root",
+      "ssh_timeout": "15m",
+      "ssh_password": "packer",
+      "unmount_iso": true,
+      "template_name": "fedora-29",
+      "template_description": "Fedora 29-1.2, generated on {{ isotime \"2006-01-02T15:04:05Z\" }}"
+    }
+  ]
+}
+```
+
+</Tab>
+</Tabs>
+tos6-ks.cfg<enter>"
+	]
+
+```
+
+The example shown below is a working boot command used to start an Ubuntu
+12.04 installer:
+
+In JSON:
+
+```json
+"boot_command": [
+
+	"<esc><esc><enter><wait>",
+	"/install/vmlinuz noapic ",
+	"preseed/url=http://{{ .HTTPIP }}:{{ .HTTPPort }}/preseed.cfg ",
+	"debian-installer=en_US auto locale=en_US kbd-chooser/method=us ",
+	"hostname={{ .Name }} ",
+	"fb=false debconf/frontend=noninteractive ",
+	"keyboard-configuration/modelcode=SKIP keyboard-configuration/layout=USA ",
+	"keyboard-configuration/variant=USA console-setup/ask_detect=false ",
+	"initrd=/install/initrd.gz -- <enter>"
+
+]
+```
+
+In HCL2:
+
+```hcl
+boot_command = [
+
+	"<esc><esc><enter><wait>",
+	"/install/vmlinuz noapic ",
+	"preseed/url=http://{{ .HTTPIP }}:{{ .HTTPPort }}/preseed.cfg ",
+	"debian-installer=en_US auto locale=en_US kbd-chooser/method=us ",
+	"hostname={{ .Name }} ",
+	"fb=false debconf/frontend=noninteractive ",
+	"keyboard-configuration/modelcode=SKIP keyboard-configuration/layout=USA ",
+	"keyboard-configuration/variant=USA console-setup/ask_detect=false ",
+	"initrd=/install/initrd.gz -- <enter>"
+
+]
+```
+
+For more examples of various boot commands, see the sample projects from our
+[community templates page](https://packer.io/community-tools#templates).
+
+<!-- End of code generated from the comments of the BootConfig struct in bootcommand/config.go; -->
+
+
+### Optional:
+<!-- Code generated from the comments of the BootConfig struct in bootcommand/config.go; DO NOT EDIT MANUALLY -->
+
+- `boot_keygroup_interval` (duration string | ex: "1h5m2s") - Time to wait after sending a group of key pressses. The value of this
+  should be a duration. Examples are `5s` and `1m30s` which will cause
+  Packer to wait five seconds and one minute 30 seconds, respectively. If
+  this isn't specified, a sensible default value is picked depending on
+  the builder type.
+
+- `boot_wait` (duration string | ex: "1h5m2s") - The time to wait after booting the initial virtual machine before typing
+  the `boot_command`. The value of this should be a duration. Examples are
+  `5s` and `1m30s` which will cause Packer to wait five seconds and one
+  minute 30 seconds, respectively. If this isn't specified, the default is
+  `10s` or 10 seconds. To set boot_wait to 0s, use a negative number, such
+  as "-1s"
+
+- `boot_command` ([]string) - This is an array of commands to type when the virtual machine is first
+  booted. The goal of these commands should be to type just enough to
+  initialize the operating system installer. Special keys can be typed as
+  well, and are covered in the section below on the boot command. If this
+  is not specified, it is assumed the installer will start itself.
+
+<!-- End of code generated from the comments of the BootConfig struct in bootcommand/config.go; -->
+
+
+## Http directory configuration
+
+<!-- Code generated from the comments of the HTTPConfig struct in multistep/commonsteps/http_config.go; DO NOT EDIT MANUALLY -->
+
+Packer will create an http server serving `http_directory` when it is set, a
+random free port will be selected and the architecture of the directory
+referenced will be available in your builder.
+
+Example usage from a builder:
+
+	`wget http://{{ .HTTPIP }}:{{ .HTTPPort }}/foo/bar/preseed.cfg`
+
+<!-- End of code generated from the comments of the HTTPConfig struct in multistep/commonsteps/http_config.go; -->
+
+
+### Optional:
+
+<!-- Code generated from the comments of the HTTPConfig struct in multistep/commonsteps/http_config.go; DO NOT EDIT MANUALLY -->
+
+- `http_directory` (string) - Path to a directory to serve using an HTTP server. The files in this
+  directory will be available over HTTP that will be requestable from the
+  virtual machine. This is useful for hosting kickstart files and so on.
+  By default this is an empty string, which means no HTTP server will be
+  started. The address and port of the HTTP server will be available as
+  variables in `boot_command`. This is covered in more detail below.
+
+- `http_content` (map[string]string) - Key/Values to serve using an HTTP server. `http_content` works like and
+  conflicts with `http_directory`. The keys represent the paths and the
+  values contents, the keys must start with a slash, ex: `/path/to/file`.
+  `http_content` is useful for hosting kickstart files and so on. By
+  default this is empty, which means no HTTP server will be started. The
+  address and port of the HTTP server will be available as variables in
+  `boot_command`. This is covered in more detail below.
+  Example:
+  ```hcl
+    http_content = {
+      "/a/b"     = file("http/b")
+      "/foo/bar" = templatefile("${path.root}/preseed.cfg", { packages = ["nginx"] })
+    }
+  ```
+
+- `http_port_min` (int) - These are the minimum and maximum port to use for the HTTP server
+  started to serve the `http_directory`. Because Packer often runs in
+  parallel, Packer will choose a randomly available port in this range to
+  run the HTTP server. If you want to force the HTTP server to be on one
+  port, make this minimum and maximum port the same. By default the values
+  are `8000` and `9000`, respectively.
+
+- `http_port_max` (int) - HTTP Port Max
+
+- `http_bind_address` (string) - This is the bind address for the HTTP server. Defaults to 0.0.0.0 so that
+  it will work with any network interface.
+
+<!-- End of code generated from the comments of the HTTPConfig struct in multistep/commonsteps/http_config.go; -->
+
+
+## Example: Fedora with kickstart
+
+Here is a basic example creating a Fedora 29 server image with a Kickstart
+file served with Packer's HTTP server. Note that the iso file needs to be
+manually downloaded.
+
+<Tabs>
+<Tab heading="HCL2">
+
+```hcl
+variable "password" {
+  type    = string
+  default = "supersecret"
+}
+
+variable "username" {
+  type    = string
+  default = "apiuser@pve"
+}
+
+source "proxmox-iso" "fedora-kickstart" {
+  boot_command = ["<up><tab> ip=dhcp inst.cmdline inst.ks=http://{{ .HTTPIP }}:{{ .HTTPPort }}/ks.cfg<enter>"]
+  boot_wait    = "10s"
+  disks {
+    disk_size         = "5G"
+    storage_pool      = "local-lvm"
+    type              = "scsi"
+  }
+  efi_config {
+    efi_storage_pool  = "local-lvm"
+    efi_type          = "4m"
+    pre_enrolled_keys = true
+  }
+  http_directory           = "config"
+  insecure_skip_tls_verify = true
+  iso_file                 = "local:iso/Fedora-Server-dvd-x86_64-29-1.2.iso"
+  network_adapters {
+    bridge = "vmbr0"
+    model  = "virtio"
+  }
+  node                 = "my-proxmox"
+  password             = "${var.password}"
+  proxmox_url          = "https://my-proxmox.my-domain:8006/api2/json"
+  ssh_password         = "packer"
+  ssh_timeout          = "15m"
+  ssh_username         = "root"
+  template_description = "Fedora 29-1.2, generated on ${timestamp()}"
+  template_name        = "fedora-29"
+  unmount_iso          = true
+  username             = "${var.username}"
+}
+
+build {
+  sources = ["source.proxmox-iso.fedora-kickstart"]
+}
+```
+
+</Tab>
+<Tab heading="JSON">
+
+```json
+{
+  "variables": {
+    "username": "apiuser@pve",
+    "password": "supersecret"
+  },
+  "builders": [
+    {
+      "type": "proxmox-iso",
+      "proxmox_url": "https://my-proxmox.my-domain:8006/api2/json",
+      "insecure_skip_tls_verify": true,
+      "username": "{{user `username`}}",
+      "password": "{{user `password`}}",
+      "node": "my-proxmox",
+      "network_adapters": [
+        {
+          "model": "virtio",
+          "bridge": "vmbr0"
+        }
+      ],
+      "disks": [
+        {
+          "type": "scsi",
+          "disk_size": "5G",
+          "storage_pool": "local-lvm"
+        }
+      ],
+      "efi_config": {
+          "efi_storage_pool": "local-lvm",
+          "pre_enrolled_keys": true,
+          "efi_type": "4m"
+      },
+      "iso_file": "local:iso/Fedora-Server-dvd-x86_64-29-1.2.iso",
+      "http_directory": "config",
+      "boot_wait": "10s",
+      "boot_command": [
+        "<up><tab> ip=dhcp inst.cmdline inst.ks=http://{{.HTTPIP}}:{{.HTTPPort}}/ks.cfg<enter>"
+      ],
+      "ssh_username": "root",
+      "ssh_timeout": "15m",
+      "ssh_password": "packer",
+      "unmount_iso": true,
+      "template_name": "fedora-29",
+      "template_description": "Fedora 29-1.2, generated on {{ isotime \"2006-01-02T15:04:05Z\" }}"
+    }
+  ]
+}
+```
+
+</Tab>
+</Tabs>
+tos6-ks.cfg<enter>"
+	]
+
+```
+
+The example shown below is a working boot command used to start an Ubuntu
+12.04 installer:
+
+In JSON:
+
+```json
+"boot_command": [
+
+	"<esc><esc><enter><wait>",
+	"/install/vmlinuz noapic ",
+	"preseed/url=http://{{ .HTTPIP }}:{{ .HTTPPort }}/preseed.cfg ",
+	"debian-installer=en_US auto locale=en_US kbd-chooser/method=us ",
+	"hostname={{ .Name }} ",
+	"fb=false debconf/frontend=noninteractive ",
+	"keyboard-configuration/modelcode=SKIP keyboard-configuration/layout=USA ",
+	"keyboard-configuration/variant=USA console-setup/ask_detect=false ",
+	"initrd=/install/initrd.gz -- <enter>"
+
+]
+```
+
+In HCL2:
+
+```hcl
+boot_command = [
+
+	"<esc><esc><enter><wait>",
+	"/install/vmlinuz noapic ",
+	"preseed/url=http://{{ .HTTPIP }}:{{ .HTTPPort }}/preseed.cfg ",
+	"debian-installer=en_US auto locale=en_US kbd-chooser/method=us ",
+	"hostname={{ .Name }} ",
+	"fb=false debconf/frontend=noninteractive ",
+	"keyboard-configuration/modelcode=SKIP keyboard-configuration/layout=USA ",
+	"keyboard-configuration/variant=USA console-setup/ask_detect=false ",
+	"initrd=/install/initrd.gz -- <enter>"
+
+]
+```
+
+For more examples of various boot commands, see the sample projects from our
+[community templates page](https://packer.io/community-tools#templates).
+
+<!-- End of code generated from the comments of the BootConfig struct in bootcommand/config.go; -->
+
+
+### Optional:
+<!-- Code generated from the comments of the BootConfig struct in bootcommand/config.go; DO NOT EDIT MANUALLY -->
+
+- `boot_keygroup_interval` (duration string | ex: "1h5m2s") - Time to wait after sending a group of key pressses. The value of this
+  should be a duration. Examples are `5s` and `1m30s` which will cause
+  Packer to wait five seconds and one minute 30 seconds, respectively. If
+  this isn't specified, a sensible default value is picked depending on
+  the builder type.
+
+- `boot_wait` (duration string | ex: "1h5m2s") - The time to wait after booting the initial virtual machine before typing
+  the `boot_command`. The value of this should be a duration. Examples are
+  `5s` and `1m30s` which will cause Packer to wait five seconds and one
+  minute 30 seconds, respectively. If this isn't specified, the default is
+  `10s` or 10 seconds. To set boot_wait to 0s, use a negative number, such
+  as "-1s"
+
+- `boot_command` ([]string) - This is an array of commands to type when the virtual machine is first
+  booted. The goal of these commands should be to type just enough to
+  initialize the operating system installer. Special keys can be typed as
+  well, and are covered in the section below on the boot command. If this
+  is not specified, it is assumed the installer will start itself.
+
+<!-- End of code generated from the comments of the BootConfig struct in bootcommand/config.go; -->
+
+
+## Http directory configuration
+
+<!-- Code generated from the comments of the HTTPConfig struct in multistep/commonsteps/http_config.go; DO NOT EDIT MANUALLY -->
+
+Packer will create an http server serving `http_directory` when it is set, a
+random free port will be selected and the architecture of the directory
+referenced will be available in your builder.
+
+Example usage from a builder:
+
+	`wget http://{{ .HTTPIP }}:{{ .HTTPPort }}/foo/bar/preseed.cfg`
+
+<!-- End of code generated from the comments of the HTTPConfig struct in multistep/commonsteps/http_config.go; -->
+
+
+### Optional:
+
+<!-- Code generated from the comments of the HTTPConfig struct in multistep/commonsteps/http_config.go; DO NOT EDIT MANUALLY -->
+
+- `http_directory` (string) - Path to a directory to serve using an HTTP server. The files in this
+  directory will be available over HTTP that will be requestable from the
+  virtual machine. This is useful for hosting kickstart files and so on.
+  By default this is an empty string, which means no HTTP server will be
+  started. The address and port of the HTTP server will be available as
+  variables in `boot_command`. This is covered in more detail below.
+
+- `http_content` (map[string]string) - Key/Values to serve using an HTTP server. `http_content` works like and
+  conflicts with `http_directory`. The keys represent the paths and the
+  values contents, the keys must start with a slash, ex: `/path/to/file`.
+  `http_content` is useful for hosting kickstart files and so on. By
+  default this is empty, which means no HTTP server will be started. The
+  address and port of the HTTP server will be available as variables in
+  `boot_command`. This is covered in more detail below.
+  Example:
+  ```hcl
+    http_content = {
+      "/a/b"     = file("http/b")
+      "/foo/bar" = templatefile("${path.root}/preseed.cfg", { packages = ["nginx"] })
+    }
+  ```
+
+- `http_port_min` (int) - These are the minimum and maximum port to use for the HTTP server
+  started to serve the `http_directory`. Because Packer often runs in
+  parallel, Packer will choose a randomly available port in this range to
+  run the HTTP server. If you want to force the HTTP server to be on one
+  port, make this minimum and maximum port the same. By default the values
+  are `8000` and `9000`, respectively.
+
+- `http_port_max` (int) - HTTP Port Max
+
+- `http_bind_address` (string) - This is the bind address for the HTTP server. Defaults to 0.0.0.0 so that
+  it will work with any network interface.
+
+<!-- End of code generated from the comments of the HTTPConfig struct in multistep/commonsteps/http_config.go; -->
+
+
+## Example: Fedora with kickstart
+
+Here is a basic example creating a Fedora 29 server image with a Kickstart
+file served with Packer's HTTP server. Note that the iso file needs to be
+manually downloaded.
+
+<Tabs>
+<Tab heading="HCL2">
+
+```hcl
+variable "password" {
+  type    = string
+  default = "supersecret"
+}
+
+variable "username" {
+  type    = string
+  default = "apiuser@pve"
+}
+
+source "proxmox-iso" "fedora-kickstart" {
+  boot_command = ["<up><tab> ip=dhcp inst.cmdline inst.ks=http://{{ .HTTPIP }}:{{ .HTTPPort }}/ks.cfg<enter>"]
+  boot_wait    = "10s"
+  disks {
+    disk_size         = "5G"
+    storage_pool      = "local-lvm"
+    type              = "scsi"
+  }
+  efi_config {
+    efi_storage_pool  = "local-lvm"
+    efi_type          = "4m"
+    pre_enrolled_keys = true
+  }
+  http_directory           = "config"
+  insecure_skip_tls_verify = true
+  iso_file                 = "local:iso/Fedora-Server-dvd-x86_64-29-1.2.iso"
+  network_adapters {
+    bridge = "vmbr0"
+    model  = "virtio"
+  }
+  node                 = "my-proxmox"
+  password             = "${var.password}"
+  proxmox_url          = "https://my-proxmox.my-domain:8006/api2/json"
+  ssh_password         = "packer"
+  ssh_timeout          = "15m"
+  ssh_username         = "root"
+  template_description = "Fedora 29-1.2, generated on ${timestamp()}"
+  template_name        = "fedora-29"
+  unmount_iso          = true
+  username             = "${var.username}"
+}
+
+build {
+  sources = ["source.proxmox-iso.fedora-kickstart"]
+}
+```
+
+</Tab>
+<Tab heading="JSON">
+
+```json
+{
+  "variables": {
+    "username": "apiuser@pve",
+    "password": "supersecret"
+  },
+  "builders": [
+    {
+      "type": "proxmox-iso",
+      "proxmox_url": "https://my-proxmox.my-domain:8006/api2/json",
+      "insecure_skip_tls_verify": true,
+      "username": "{{user `username`}}",
+      "password": "{{user `password`}}",
+      "node": "my-proxmox",
+      "network_adapters": [
+        {
+          "model": "virtio",
+          "bridge": "vmbr0"
+        }
+      ],
+      "disks": [
+        {
+          "type": "scsi",
+          "disk_size": "5G",
+          "storage_pool": "local-lvm"
+        }
+      ],
+      "efi_config": {
+          "efi_storage_pool": "local-lvm",
+          "pre_enrolled_keys": true,
+          "efi_type": "4m"
+      },
+      "iso_file": "local:iso/Fedora-Server-dvd-x86_64-29-1.2.iso",
+      "http_directory": "config",
+      "boot_wait": "10s",
+      "boot_command": [
+        "<up><tab> ip=dhcp inst.cmdline inst.ks=http://{{.HTTPIP}}:{{.HTTPPort}}/ks.cfg<enter>"
+      ],
+      "ssh_username": "root",
+      "ssh_timeout": "15m",
+      "ssh_password": "packer",
+      "unmount_iso": true,
+      "template_name": "fedora-29",
+      "template_description": "Fedora 29-1.2, generated on {{ isotime \"2006-01-02T15:04:05Z\" }}"
+    }
+  ]
+}
+```
+
+</Tab>
+</Tabs>

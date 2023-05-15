@@ -30,13 +30,6 @@ type Config struct {
 	Comm                communicator.Config                `mapstructure:",squash"`
 	ProxmoxConnect      proxmoxcommon.ProxmoxConnectConfig `mapstructure:",squash"`
 
-	// commonsteps.ISOConfig `mapstructure:",squash"`
-	// ISOFile               string `mapstructure:"iso_file"`
-	// ISOStoragePool        string `mapstructure:"iso_storage_pool"`
-	// ISODownloadPVE        bool   `mapstructure:"iso_download_pve"`
-	// UnmountISO            bool   `mapstructure:"unmount_iso"`
-	// shouldUploadISO       bool
-
 	// Required
 	OsTemplate string `mapstructure:"os_template"`
 	VMID       int    `mapstructure:"vm_id"`
@@ -181,8 +174,13 @@ func (c *Config) Prepare(raws ...interface{}) ([]string, []string, error) {
 		log.Printf("Swap size %d is too small, using default: 512", c.Swap)
 		c.Swap = 512
 	}
-	if c.CMode == "" {
+	if c.CMode == "" || (c.CMode != "shell" && c.CMode != "tty" && c.CMode != "console") {
+		log.Printf("Invalid console mode specified (%s), using default: tty", c.CMode)
 		c.CMode = "tty"
+	}
+	if c.TTY <= 0 || c.TTY > 6 {
+		log.Printf("Invalid TTY size specified (%d), using default: 2", c.TTY)
+		c.TTY = 2
 	}
 	if c.CpuUnits < 8 {
 		c.CpuUnits = 1024
