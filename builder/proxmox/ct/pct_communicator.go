@@ -91,12 +91,15 @@ func (c *PctCommunicator) UploadDir(dst string, src string, exclude []string) er
 			return err
 		}
 		target = dst
+		if src[len(src)-1:] == "/" {
+			target += "/" + src
+		}
 	} else {
 		target = src
 	}
 
 	remoteCmd := packersdk.RemoteCmd{
-		Command: fmt.Sprintf("find %s -print0 | while IFS= read -r -d '' file; do echo \"$file\"; done", target),
+		Command: fmt.Sprintf("find %s -print0 | while IFS=' ' read -r -d '' file; do echo \"$file\"; done", target),
 	}
 
 	return c.Execute(context.Background(), &remoteCmd, true)
